@@ -19,6 +19,7 @@ void setup() {
   cp5.enableShortcuts();
   cp5.addTab("_");
   cp5.addControllersFor(this);
+  cp5.hide();
 
   backgroundImage = loadImage("floorplan2.png");
 
