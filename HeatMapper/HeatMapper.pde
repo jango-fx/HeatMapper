@@ -1,112 +1,85 @@
-/** 
- * based on tomschofield's code at https://forum.processing.org/one/topic/heatmap-using-inverse-distance-weighted-interpolation-solution.html
- * 
- * A processing.org implementation of SHEPARD's METHOD for INVERSE DISTANCE WEIGHTING FOLLOWING FORMULA FOUND AT http://www.ems-i.com/smshelp/Data_Module/Interpolation/Inverse_Distance_Weighted.htm
- * TOMSCHOFIELDART.COM THIS CODE IS FREE UNDER CREATIVE COMMONS NON COMMERCIAL ATTRIBUTION SHARE ALIKE 2012
- */
+import controlP5.*;
+
+ControlP5 cp5;
 
 PImage mapImage;
+PImage backgroundImage;
 ArrayList<PVector> data = new ArrayList<PVector>();
+
+
+@ControlElement (properties = { "min=0", "max=255", "value=255"}, x=20, y=30)
+  public int FLOORPLAN_OPACITY;
+@ControlElement (properties = { "min=0", "max=255", "value=127"}, x=20, y=50)
+  public int HEAT_MAP_OPACITY;
 
 void setup() {
   size(800, 600);
   colorMode(HSB);
+  cp5 = new ControlP5(this);
+  cp5.enableShortcuts();
+  cp5.addTab("_");
+  cp5.addControllersFor(this);
 
-  for (int i=0; i<3; i++) {
-    data.add(  new PVector(random(width), random(height), random(1.0))  );
-  }
+  backgroundImage = loadImage("floorplan2.png");
+
+  //for (int i=0; i<10; i++) {
+  //  data.add(  new PVector(random(width), random(height), random(-90, -50))  );
+  //}
 
   mapImage = makeHeatMap(data);
 }
 
 void draw() {
+  background(255);
+
+  blendMode(BLEND);
+  tint(255, FLOORPLAN_OPACITY);
+  image(backgroundImage, 0, 0);
+
+  blendMode(MULTIPLY);
+  tint(255, HEAT_MAP_OPACITY);
   image(mapImage, 0, 0);
 
+  blendMode(BLEND);
+  tint(255, 255);
+
   for (int i=0; i<data.size(); i++) {
+    fill(0);
     text(str(data.get(i).z), data.get(i).x, data.get(i).y);
   }
 }
 
 void mouseReleased()
 {
-  data.add(  new PVector(mouseX, mouseY, random(1.0))  );
+  
+  if (cp5.getWindow().getMouseOverList().size() <= 0) {
+    data.add(  new PVector(mouseX, mouseY, getWiFiStrength() )  );
+    //data.add(  new PVector(mouseX, mouseY, map(noise(mouseX*0.02, mouseY*0.02), 0.0, 1.0, -100, -50) )  );
+  }
+
+  PVector[] bounds = getBounds(data);
+  MIN_STRENGTH = bounds[0].z;
+  MAX_STRENGTH = bounds[1].z;
+
+  println(bounds);
+
   mapImage = makeHeatMap(data);
 }
 
-//returns the a pimage of screen size
-PImage makeHeatMap(ArrayList<PVector> d) {
-  PImage timg=createImage(width, height, RGB);
-  timg.loadPixels();
+PVector[] getBounds(ArrayList<PVector> data)
+{
+  PVector min = new PVector(Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE);
+  PVector max = new PVector(Float.MIN_VALUE, Float.MIN_VALUE, -Float.MAX_VALUE);
+  for (PVector p : data)
+  {
+    min.x = min(min.x, p.x);
+    min.y = min(min.y, p.y);
+    min.z = min(min.z, p.z);
 
-  loadPixels();
-
-  //maxpossible distance between any 2 pixels is the diagonal distance across the screen
-  //float maxDist = sqrt((width*width)+(height*height));
-
-  float x=0.0f;
-  float y=0.0f;
-  for (int i=0; i<pixels.length; i++) {
-    float _hue = getInterpValue( x, y, d);
-
-    color aColor=color(255-(255*_hue), 255, 255);
-    timg.pixels[i]= aColor;
-    x++;
-    if (x>=width) {
-      x=0; 
-      y++;
-    }
+    max.x = max(max.x, p.x);
+    max.y = max(max.y, p.y);
+    max.z = max(max.z, p.z);
   }
-  timg.updatePixels();
-  return timg;
+  PVector[] bounds = {min, max};
+  return bounds;
 }
-
-//ITERATES THROUGH ALL THE DATA POINTS AND FINDS THE FURTHERS ONE
-float getMaxDistanceFromPoint(float x, float y, ArrayList<PVector> d) {
-  float maxDistance=0.0f;
-  //get disance between this and each pther point
-  for (int i=0; i < d.size(); i++) {
-    float thisDist=dist(x, y, d.get(i).x, d.get(i).y);
-    //if this distance is greater than previous distances, this is the new max
-    if (thisDist>maxDistance) {
-      maxDistance=thisDist;
-    }
-  }
-  return maxDistance;
-}
-
-//RETURNS AN ARRAY OF THE DISTANCE BETWEEN THIS PIXEL AND ALL DATA POINTS
-float [] getAllDistancesFromPoint(float x, float y, ArrayList<PVector>d) {
-  float [] allDistances = new float [d.size()];
-  for (int i=0; i<d.size(); i++) { 
-    allDistances[i]= dist(x, y, d.get(i).x, d.get(i).y);
-  }
-
-  return allDistances;
-}
-
-
-//RETURNS THE ACTUAL WEIGHTED VALUE FOR THIS PIXEL
-float getInterpValue(float x, float y, ArrayList<PVector> d) {
-  float interpValue=0.0f;
-
-  for (int i=0; i < d.size(); i++) {
-    float maxDist = getMaxDistanceFromPoint( x, y, d);
-    float [] allDistances = getAllDistancesFromPoint( x, y, d);
-    float thisDistance = dist(x, y, d.get(i).x, d.get(i).y);
-    interpValue += d.get(i).z*getWeight( maxDist, thisDistance, allDistances );
-  }
-  return interpValue;
-}
-
-
-//THE WEIGHT IS THE VALUE COEFFICIENT (? RIGHT TERM) BY WHICH WE WILL MULTIPLY EACH VALUE TO GET THE CORRECT WEIGHTING
-float getWeight(float maxDistance, float thisDistance, float [] allDistances ) {
-  float weight=0.0f;
-  float firstTerm = pow(((maxDistance - thisDistance   )/( maxDistance * thisDistance  )), 2);
-  float secondTerm=0.0f;
-  for (int i=0; i<allDistances.length; i++) {
-    secondTerm+=pow(((maxDistance - allDistances[i]   )/( maxDistance * allDistances[i]  )), 2);
-  }
-  weight = firstTerm/secondTerm;
-  return weight;
-} 
