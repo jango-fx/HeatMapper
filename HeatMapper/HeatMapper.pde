@@ -51,7 +51,7 @@ void draw() {
 
 void mouseReleased()
 {
-  
+
   if (cp5.getWindow().getMouseOverList().size() <= 0) {
     data.add(  new PVector(mouseX, mouseY, getWiFiStrength() )  );
     //data.add(  new PVector(mouseX, mouseY, map(noise(mouseX*0.02, mouseY*0.02), 0.0, 1.0, -100, -50) )  );
@@ -61,9 +61,13 @@ void mouseReleased()
   MIN_STRENGTH = bounds[0].z;
   MAX_STRENGTH = bounds[1].z;
 
-  println(bounds);
-
   mapImage = makeHeatMap(data);
+}
+
+void keyPressed()
+{
+  if (key == ' ')
+    saveData(data);
 }
 
 PVector[] getBounds(ArrayList<PVector> data)
@@ -82,4 +86,25 @@ PVector[] getBounds(ArrayList<PVector> data)
   }
   PVector[] bounds = {min, max};
   return bounds;
+}
+
+void saveData(ArrayList<PVector> d)
+{
+  String[] lines = new String[d.size()];
+
+  for (int i = 0; i < d.size(); i++)
+  {
+    PVector p = d.get(i);
+    lines[i] = p.x +", "+ p.y +", "+ p.z;
+  }
+  String fileName = "out/"+getTime()+"_data";
+
+  saveStrings(fileName+".csv", lines);
+  mapImage.save(fileName+".png");
+  println("saved "+fileName);
+  
+}
+
+String getTime() {
+  return new java.text.SimpleDateFormat("yyMMdd-HHmmss", java.util.Locale.GERMANY).format(new java.util.Date());
 }
